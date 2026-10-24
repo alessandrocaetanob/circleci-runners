@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Troca a versão do Node no PATH: use-node 22
+# Imprime o export no stdout (eval "$(use-node 22)") e, se $BASH_ENV existe,
+# grava a mesma linha nele para os steps seguintes do job.
+set -euo pipefail
+
+version="${1:-}"
+if [[ ! "$version" =~ ^[0-9]+$ ]]; then
+  echo "uso: use-node <versão major>, por exemplo: use-node 22" >&2
+  exit 2
+fi
+
+dir="/opt/node/$version"
+if [[ ! -x "$dir/bin/node" ]]; then
+  echo "use-node: $dir não existe. Versões instaladas: $(find /opt/node -mindepth 1 -maxdepth 1 -printf '%f ')" >&2
+  exit 1
+fi
+
+line="export PATH=$dir/bin:\$PATH"
+if [[ -n "${BASH_ENV:-}" ]]; then
+  printf '%s\n' "$line" >> "$BASH_ENV"
+fi
+printf '%s\n' "$line"

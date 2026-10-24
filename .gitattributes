@@ -1,0 +1,5 @@
+*.sh text eol=lf
+use-node text eol=lf
+Dockerfile text eol=lf
+compose.yaml text eol=lf
+runner.env text eol=lf
