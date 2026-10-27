@@ -52,7 +52,8 @@ pelo restart policy, sem passar pelo compose.
 - `scripts/build.ps1` roda `tests/smoke.sh` dentro da imagem (ferramentas, `known_hosts`, Chromium).
 - `bash tests/pool.sh` roda no host, em Git Bash, com o Docker Desktop ligado. Garante o `/hyperius`, sobe seis
   containers `pool-test-1` a `pool-test-6` com 4 CPUs ocupadas cada e falha se a soma do `docker stats` ficar fora de
-  1100% a 1250%. Os containers somem no fim.
+  1100% a 1250%. Os containers somem no fim. Rode com os slots ociosos (`scripts/status.ps1`): um job real no
+  `/hyperius` divide as 12 CPUs com o teste e derruba a soma abaixo de 1100%.
 
 ### Atualizar a imagem
 
