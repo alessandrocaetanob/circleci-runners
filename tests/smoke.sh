@@ -44,6 +44,9 @@ check python-venv "pip " bash -c 'python3 -m venv /tmp/v && /tmp/v/bin/pip --ver
 check npm-global "1.2.3" bash -c 'npm i -g --no-audit --no-fund semver@7.6.3 >/dev/null && semver 1.2.3'
 check sudo "" sudo -n true
 check circleci-runner "" /opt/circleci/bin/circleci-runner --version
+check ssh-known-hosts "github.com" ssh-keygen -F github.com -f /etc/ssh/ssh_known_hosts
+# shellcheck disable=SC2016
+check playwright-chromium "chromium ok" bash -c 'd=$(mktemp -d) && cd "$d" && npm init -y >/dev/null && npm i --no-audit --no-fund playwright-core@1.64.1 >/dev/null && node -e "const {chromium}=require(\"playwright-core\");(async()=>{const b=await chromium.launch();const p=await b.newPage();await p.goto(\"about:blank\");console.log(\"chromium ok \"+b.version());await b.close()})().catch(e=>{console.error(e.message);process.exit(1)})"'
 
 if ((${#failures[@]})); then
   echo

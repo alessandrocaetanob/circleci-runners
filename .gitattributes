@@ -3,3 +3,4 @@ use-node text eol=lf
 Dockerfile text eol=lf
 compose.yaml text eol=lf
 runner.env text eol=lf
+ssh_known_hosts text eol=lf

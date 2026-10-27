@@ -7,6 +7,7 @@ ARG NODE_LATEST_SHA256=cc2f601cee82d9a5a233302fe307abc600727035fd7d2c3a357175598
 ARG NODE_LTS_VERSION=22.12.0
 ARG NODE_LTS_SHA256=22982235e1b71fa8850f82edd09cdae7e3f32df1764a9ec298c72d25ef2c164f
 ARG DOTNET_CHANNEL=10.0
+ARG PLAYWRIGHT_VERSION=1.64.1
 
 USER root
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -60,6 +61,26 @@ RUN set -eux; \
     install_node "${NODE_LTS_VERSION}" "${NODE_LTS_SHA256}"; \
     chown -R circleci:circleci /opt/node
 
+# Camada própria depois do Node: trocar a versão do Playwright não refaz .NET nem Java.
+# install-deps roda o apt-get do Playwright como root; o Chromium fica fora do HOME do job,
+# com dono circleci, para outra versão do Playwright ainda conseguir baixar o seu.
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
+RUN set -eux; \
+    export PATH=/opt/node/24/bin:$PATH; \
+    pw="$(mktemp -d)"; \
+    npm install --prefix "$pw" --ignore-scripts --no-audit --no-fund "playwright@${PLAYWRIGHT_VERSION}"; \
+    "$pw/node_modules/.bin/playwright" install-deps chromium; \
+    mkdir -p "${PLAYWRIGHT_BROWSERS_PATH}"; \
+    "$pw/node_modules/.bin/playwright" install chromium; \
+    chown -R circleci:circleci "${PLAYWRIGHT_BROWSERS_PATH}"; \
+    rm -rf /root/.npm /root/.cache /var/lib/apt/lists/* /tmp/*
+
+# Chaves do github.com para o ssh dos jobs: sem elas o git fetch por SSH espera a confirmação
+# da chave e trava (o step checkout do CircleCI grava as chaves só num diretório temporário).
+# Origem: https://api.github.com/meta (campo ssh_keys), conferidas contra as impressões SHA256 de
+# https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/githubs-ssh-key-fingerprints
+COPY --chmod=0644 ssh_known_hosts /etc/ssh/ssh_known_hosts
+
 COPY use-node /usr/local/bin/use-node
 
 # Shells de login (o CircleCI usa bash --login) refazem o PATH em /etc/profile,
@@ -70,6 +91,7 @@ RUN chmod 0755 /usr/local/bin/use-node \
       'export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64' \
       'export DOTNET_CLI_TELEMETRY_OPTOUT=1' \
       'export DOTNET_NOLOGO=1' \
+      'export PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright' \
       'export PATH=/opt/node/24/bin:/usr/local/bin:$PATH' \
     > /etc/profile.d/hyperius.sh
 

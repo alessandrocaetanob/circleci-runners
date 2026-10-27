@@ -15,9 +15,11 @@ if [ -z "${CIRCLECI_RUNNER_API_AUTH_TOKEN:-}" ]; then
 fi
 
 RUNNER_IMAGE="${RUNNER_IMAGE:-hyperius-runner:latest}"
-JOB_CPUS="${JOB_CPUS:-8}"
-JOB_MEMORY="${JOB_MEMORY:-10g}"
+JOB_CPUS="${JOB_CPUS:-4}"
+JOB_MEMORY="${JOB_MEMORY:-6g}"
 JOB_SHM="${JOB_SHM:-1g}"
+POOL_CPUS="${POOL_CPUS:-12}"
+POOL_MEMORY="${POOL_MEMORY:-24g}"
 STOP_TIMEOUT="${STOP_TIMEOUT:-30}"
 MIN_RUN_SECONDS=10
 PAUSE=5
@@ -25,6 +27,10 @@ MAX_BACKOFF=300
 
 # O docker run herda o token do ambiente (-e NOME sem valor): ele não vai nos argumentos.
 export CIRCLECI_RUNNER_API_AUTH_TOKEN
+
+# ensure_pool_cgroup: teto do conjunto de slots, garantido antes de cada job.
+# shellcheck source=pool.sh
+. /pool.sh
 
 pid=""
 stopping=0
@@ -64,10 +70,19 @@ while :; do
     docker rm -f "$SLOT_NAME" >/dev/null 2>&1 || true
   fi
 
-  log "iniciando runner ($RUNNER_IMAGE, ${JOB_CPUS} cpus, ${JOB_MEMORY})."
+  if ! ensure_pool_cgroup; then
+    log "teto do conjunto não garantido, runner não sobe. Nova tentativa em ${delay}s."
+    nap "$delay"
+    delay=$(( delay * 2 ))
+    [ "$delay" -gt "$MAX_BACKOFF" ] && delay=$MAX_BACKOFF
+    continue
+  fi
+
+  log "iniciando runner ($RUNNER_IMAGE, ${JOB_CPUS} cpus, ${JOB_MEMORY}, pool ${POOL_CPUS} cpus e ${POOL_MEMORY})."
   started=$(date +%s)
   docker run --rm --pull never \
     --name "$SLOT_NAME" \
+    --cgroup-parent=/hyperius \
     --label "hyperius.slot=$SLOT_NAME" \
     --cpus "$JOB_CPUS" \
     --memory "$JOB_MEMORY" \
