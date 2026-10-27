@@ -12,15 +12,15 @@ POOL_HELPER_IMAGE="${POOL_HELPER_IMAGE:-docker:29-cli}"
 
 # Converte 24g, 512m, 1024k ou 1048576 em bytes (mesmos sufixos do docker --memory).
 pool_to_bytes() {
-  case "$1" in
-    *[!0-9bBkKmMgG]* | '' | [!0-9]*) return 1 ;;
-  esac
   n=${1%%[!0-9]*}
-  case "$1" in
-    *[gG]) echo $(( n * 1073741824 )) ;;
-    *[mM]) echo $(( n * 1048576 )) ;;
-    *[kK]) echo $(( n * 1024 )) ;;
-    *) echo "$n" ;;
+  [ -n "$n" ] && [ "$n" -gt 0 ] || return 1
+  # Um sufixo só: 24gb ou 1g5 virariam um memory.max de poucos bytes e matariam todo job.
+  case "${1#"$n"}" in
+    '' | [bB]) echo "$n" ;;
+    [kK]) echo $(( n * 1024 )) ;;
+    [mM]) echo $(( n * 1048576 )) ;;
+    [gG]) echo $(( n * 1073741824 )) ;;
+    *) return 1 ;;
   esac
 }
 
