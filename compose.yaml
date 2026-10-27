@@ -1,6 +1,6 @@
 name: hyperius
 
-# slot.sh vai por bind mount (arquivo único) em vez de uma imagem de supervisor:
+# slot.sh e pool.sh vão por bind mount (arquivo único) em vez de uma imagem de supervisor:
 # não exige build e uma edição vale no próximo restart. O .gitattributes força LF
 # nos .sh, que é o único risco do bind mount vindo do Windows.
 x-slot: &slot
@@ -13,12 +13,15 @@ x-slot: &slot
   volumes:
     - /var/run/docker.sock:/var/run/docker.sock
     - ./supervisor/slot.sh:/slot.sh:ro
+    - ./supervisor/pool.sh:/pool.sh:ro
 
 x-slot-env: &slot-env
   RUNNER_IMAGE: ${RUNNER_IMAGE:-hyperius-runner:latest}
-  JOB_CPUS: ${JOB_CPUS:-8}
-  JOB_MEMORY: ${JOB_MEMORY:-10g}
+  JOB_CPUS: ${JOB_CPUS:-4}
+  JOB_MEMORY: ${JOB_MEMORY:-6g}
   JOB_SHM: ${JOB_SHM:-1g}
+  POOL_CPUS: ${POOL_CPUS:-12}
+  POOL_MEMORY: ${POOL_MEMORY:-24g}
   # Sem valor: o compose herda do ambiente do processo (op run).
   CIRCLECI_RUNNER_API_AUTH_TOKEN:
 
@@ -38,3 +41,18 @@ services:
     environment:
       <<: *slot-env
       SLOT_NAME: hyperius-3
+  slot-4:
+    <<: *slot
+    environment:
+      <<: *slot-env
+      SLOT_NAME: hyperius-4
+  slot-5:
+    <<: *slot
+    environment:
+      <<: *slot-env
+      SLOT_NAME: hyperius-5
+  slot-6:
+    <<: *slot
+    environment:
+      <<: *slot-env
+      SLOT_NAME: hyperius-6
