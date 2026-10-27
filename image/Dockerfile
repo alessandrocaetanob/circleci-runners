@@ -67,9 +67,11 @@ RUN set -eux; \
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
 RUN set -eux; \
     export PATH=/opt/node/24/bin:$PATH; \
-    npx -y playwright@${PLAYWRIGHT_VERSION} install-deps chromium; \
+    pw="$(mktemp -d)"; \
+    npm install --prefix "$pw" --ignore-scripts --no-audit --no-fund "playwright@${PLAYWRIGHT_VERSION}"; \
+    "$pw/node_modules/.bin/playwright" install-deps chromium; \
     mkdir -p "${PLAYWRIGHT_BROWSERS_PATH}"; \
-    npx -y playwright@${PLAYWRIGHT_VERSION} install chromium; \
+    "$pw/node_modules/.bin/playwright" install chromium; \
     chown -R circleci:circleci "${PLAYWRIGHT_BROWSERS_PATH}"; \
     rm -rf /root/.npm /root/.cache /var/lib/apt/lists/* /tmp/*
 

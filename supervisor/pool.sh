@@ -34,6 +34,7 @@ ensure_pool_cgroup() {
       log "POOL_CPUS inválido: '$_cpus'."
       return 1
       ;;
+    *) ;;
   esac
   if ! _mem_bytes=$(pool_to_bytes "$_mem"); then
     log "POOL_MEMORY inválido: '$_mem' (use 24g, 512m, ...)."
