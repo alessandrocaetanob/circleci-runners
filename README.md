@@ -61,6 +61,26 @@ Mudar o padrão exige `scripts/down.ps1` com os slots ociosos e `scripts/up.ps1`
   os slots ociosos (`scripts/status.ps1`): um job real no `/hyperius` divide as 16 CPUs com o teste e derruba a soma
   abaixo de 1440%.
 
+### Medir o uso do CircleCI
+
+Os scripts de `scripts/uso/` agregam a exportação de uso do CircleCI, para comparar créditos, duração e fila antes e depois de uma mudança no CI. Só usam a stdlib do Python 3.11.
+
+1. Baixe a exportação com a ferramenta `download_usage_data` do MCP do CircleCI. A janela vai até 31 dias. A resposta traz links de arquivos `.csv.gz`.
+2. Baixe cada link e descompacte (`gzip -d`) numa pasta vazia fora do repositório. Os CSVs trazem nomes de branches de repos privados e não entram no repositório, que é público.
+3. Rode, passando a pasta:
+
+```bash
+# créditos por projeto e job (--json para a saída em JSON)
+python -I scripts/uso/agregar.py <pasta dos CSVs>
+
+# duração e fila por semana ISO, e a mediana por faixa de jobs runner ao lado ("<1", "1-3", ">=3")
+python -I scripts/uso/semanal.py <pasta dos CSVs> --projeto vnforge --job linux --executor runner
+```
+
+O valor nulo `\N` e o vazio contam como 0. O `semanal.py` considera só jobs `success` e agrupa pela semana do início do job. Cada job fica na faixa da média de outros jobs `runner` sobrepostos a ele (qualquer projeto e status).
+
+Testes: `python -I -m unittest discover -s tests/uso -v`. Com `USO_CSV_DIR=<pasta da exportação de 24/10 a 23/11>` rodam também os dois testes com os dados reais, que sem a variável são pulados.
+
 ### Atualizar a imagem
 
 1. `scripts/build.ps1`.
