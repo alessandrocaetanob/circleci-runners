@@ -132,7 +132,7 @@ Base: `circleci/runner-agent:machine-3` (Ubuntu 22.04, usuário `circleci`).
 As pastas do Node pertencem ao usuário `circleci`, então `npm i -g` funciona sem sudo. O `/usr/bin/python3` do
 sistema não muda. Terraform fica fora da imagem: cada projeto instala no job.
 
-A pasta `/opt/dotnet-tools` pertence ao root e está no `PATH`: o job usa as duas ferramentas do Sonar sem baixar nada, mas só lê a pasta. Nenhum job deixa binário para o seguinte.
+A pasta `/opt/dotnet-tools` pertence ao root e está no `PATH`: o job usa as duas ferramentas do Sonar sem baixar nada, e sem sudo só lê a pasta. O `circleci` tem sudo sem senha, então um step com `sudo` consegue escrever ali. Cada job roda num container novo, e o que ele grava some com o container.
 
 O Chromium do Playwright 1.64.1 já está na imagem. Um projeto com a mesma versão do Playwright usa
 `npx playwright install chromium` sem baixar nada nem rodar `--with-deps`; outra versão baixa o seu navegador para

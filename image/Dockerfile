@@ -78,8 +78,8 @@ RUN set -eux; \
     rm -rf /root/.npm /root/.cache /var/lib/apt/lists/* /tmp/*
 
 # Camada própria depois do .NET e do Playwright: trocar uma versão do Sonar não refaz as anteriores.
-# Instalada como root em pasta que o circleci só lê: um job não consegue deixar binário para o
-# seguinte, e o SONAR_TOKEN nunca passa por um executável plantado por outro job.
+# Instalada como root: sem sudo o circleci só lê a pasta. Com sudo ele escreve, mas cada job roda
+# num container novo e o que grava some com ele.
 RUN set -eux; \
     export DOTNET_CLI_HOME=/tmp/dotnet-home DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1; \
     dotnet tool install --tool-path /opt/dotnet-tools dotnet-sonarscanner --version "${SONARSCANNER_VERSION}"; \
@@ -100,6 +100,7 @@ RUN chmod 0755 /usr/local/bin/use-node \
       'export DOTNET_ROOT=/usr/share/dotnet' \
       'export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64' \
       'export DOTNET_CLI_TELEMETRY_OPTOUT=1' \
+      'export DOTNET_COVERAGE_TELEMETRY_OPTOUT=1' \
       'export DOTNET_NOLOGO=1' \
       'export PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright' \
       'export PATH=/opt/node/24/bin:/opt/dotnet-tools:/usr/local/bin:$PATH' \
@@ -108,6 +109,7 @@ RUN chmod 0755 /usr/local/bin/use-node \
 ENV DOTNET_ROOT=/usr/share/dotnet \
     JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
     DOTNET_CLI_TELEMETRY_OPTOUT=1 \
+    DOTNET_COVERAGE_TELEMETRY_OPTOUT=1 \
     DOTNET_NOLOGO=1 \
     PATH=/opt/node/24/bin:/opt/dotnet-tools:/usr/local/bin:${PATH}
 
