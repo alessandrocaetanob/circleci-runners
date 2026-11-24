@@ -6,18 +6,35 @@ Data: 2026-11-24. Pergunta: vale construir um proxy local de pacotes para os job
 
 | Gerenciador | Decisão | Número que decide |
 |---|---|---|
-| npm (personal-notes) | **No-go** | `npm ci` do `.app`: mediana 20,4 s direto contra 15,4 s pelo Verdaccio quente. Ganho de 5 s, do tamanho da oscilação entre as amostras diretas (18,9 a 23,2 s). |
-| NuGet (vnforge) | **Go, depois do lockfile** | `dotnet restore VNForge.slnx`: mediana 54,0 s direto contra 14,4 s pelo BaGetter quente (menos 73%), com oscilação de 15 s no direto e 6 s no quente. |
+Critério, o mesmo para os dois gerenciadores: **go** quando o ganho estimado no job passa de 10% do tempo do job ou de 30 s, pesando o custo de manter um serviço a mais. Sem medida dentro de um job real, vale a estimativa.
 
-O ganho real do NuGet no job é menor que os 40 s da medida. O log do job 1928 mostra restore de pelo menos 20 s, não de 54 s (seção "Restore de hoje"). Aplicando a razão quente/direto desta medida (0,27) a 20 s, o job economiza uns 15 s de 271 s; como os 20 s são um piso, esse valor é a estimativa baixa e o ganho real fica entre 15 s e os 40 s medidos. Nenhum dos dois foi medido no CI.
+| Gerenciador | Decisão | Número que decide |
+|---|---|---|
+| npm (`.app` do personal-notes) | **No-go** | `npm ci`: mediana 20,4 s direto contra 15,4 s pelo Verdaccio quente. Ganho de 5 s, do tamanho da oscilação entre as amostras diretas (18,9 a 23,2 s). Abaixo de 30 s. |
+| NuGet (vnforge) | **No-go agora** | Ganho estimado de 6 a 15 s no job de 271 s (2% a 5%), abaixo de 10% e de 30 s. Detalhe abaixo. |
 
-O BaGetter não é um espelho offline: com o nuget.org inalcançável o restore terminou, mas em 8 a 11 minutos contra 14 s (seção "O espelho de NuGet não é offline"). Ele acelera o restore, não protege contra queda do nuget.org.
+### O ganho do NuGet no job
+
+Neste PC, o `dotnet restore VNForge.slnx` tem mediana de 54,0 s direto contra 14,4 s pelo BaGetter quente (menos 73%), com oscilação de 16 s no direto (41,3 a 56,9) e de 6 s no quente (12,6 a 18,9). Esses 40 s de diferença não são o ganho do job: o restore direto daqui é duas a três vezes mais lento que o do CI. O teto do ganho é o restore do CI, que no job 1928 levou pelo menos 20 s (seção "Restore de hoje"). Duas contas, ambas sem medida em CI:
+
+- Pela razão quente/direto desta medida (0,27): 20 s viram 5,3 s, ganho de uns 15 s (5% do job).
+- Pelo tempo absoluto do proxy quente (14,4 s) contra os 20 s do CI: ganho de uns 6 s (2% do job). Dos 14,4 s, uns 11 s são, por inferência, a consulta do BaGetter ao upstream e o tráfego HTTP, já que a restauração com o cache local do NuGet quente leva 2,5 a 3,5 s; essa parcela não foi medida separada.
+
+A faixa é de 6 a 15 s. Um proxy de NuGet só volta à mesa com uma medida dentro de um job real do hyperius.
+
+### O lockfile vale sem o proxy
+
+O lockfile do NuGet com restore travado (`RestorePackagesWithLockFile`, `--locked-mode`, `rollForward: disable`, seção "O que o vnforge precisa antes") vale pela reprodutibilidade do restore, independentemente do proxy. Hoje não existe nenhum `packages.lock.json`.
+
+### Modo de falha do BaGetter
+
+O BaGetter não é um espelho offline. Com o nuget.org inalcançável o restore terminou, mas levou minutos, não segundos, contra 14 s com o upstream no ar. Foram duas execuções que se sobrepuseram, então o valor exato não é uma medida limpa (seção "O espelho de NuGet não é offline"). Ele acelera o restore, não protege contra queda do nuget.org. Seis slots contra um espelho só, e o tempo-limite que o NuGet espera pelo upstream, nunca foram medidos.
 
 ## Como foi medido
 
 - Cada amostra é um `docker run --rm` novo de `hyperius-runner:latest` com `--cpus 4 --memory 6g`, os limites dos jobs reais. O cache de npm (`~/.npm`) e o de NuGet (`~/.nuget/packages`) começam vazios.
 - A cópia do projeto entra por bind mount somente leitura em `/src` e é copiada para o disco do container antes do cronômetro. Só o comando medido é cronometrado (`$EPOCHREALTIME` do bash antes e depois), então escrever `node_modules` e `obj` não passa pelo bind mount do Windows.
-- Os sources são cópias de `HEAD` extraídas por `git archive`: personal-notes `fc0d500f` (só `.app`) e vnforge `f8e89466`. Os dois repos não foram tocados.
+- Os sources são cópias de `HEAD` extraídas por `git archive`: o `.app` do personal-notes (81 pacotes, 212 MB no espelho) e vnforge `f8e89466`. Os dois repos não foram tocados.
 - Direto: container na rede `bridge` do Docker, com saída para a internet. Proxy: container na rede `proxypk-int` (`--internal`, sem saída), então todo byte veio do espelho.
 - Os dois espelhos ficam na rede `proxypk-net` (com saída) e também em `proxypk-int`. Imagens fixadas: `verdaccio/verdaccio:7.1.2` (digest `sha256:4addf64c2fd5f86e963444e8a482d7cd20cd2243e01470d548bdb23d0cd609de`) e `bagetter/bagetter:1.6.5` (digest `sha256:ed12b9450c7fe97df7d18b0ade1e7737abbfc865807e0ff7d5f3535860266241`).
 - Os espelhos rodam sem limite de CPU e de memória. Foi uma amostra por vez, nunca seis jobs ao mesmo tempo: a concorrência dos seis slots não foi medida.
@@ -61,7 +78,7 @@ dotnet restore VNForge.slnx                         # direto
 #   </packageSources>
 ```
 
-O `npm ci` de personal-notes vem de `.circleci/continue_config.yml` do próprio repo (`working_directory: .app`, passo `npm ci`). O `npm` do container é o 10.9.0 com Node 22.12.0; o SDK é o .NET 10.0.403.
+O `npm` do container é o 10.9.0 com Node 22.12.0; o SDK é o .NET 10.0.403.
 
 ## npm: Verdaccio 7.1.2
 
@@ -89,7 +106,7 @@ Fontes, lidas no Context7 (biblioteca `/websites/verdaccio`, páginas de verdacc
 - Lista `publish` vazia ou ausente não casa com ninguém (https://www.verdaccio.org/docs/packages/ e /docs/protect-your-dependencies/, receita "read-only mirror"). Por isso `publish` e `unpublish` não aparecem na configuração.
 - `maxage` do uplink é o tempo em que o metadado fica em cache antes de ser revalidado; o padrão é 2 min (https://www.verdaccio.org/docs/caching/). Usei 30 min.
 
-A documentação do site não é versionada; ela cita recursos do 7.x. A versão da imagem foi fixada em 7.1.2 (a `latest` de 2026-11-18) e o comportamento abaixo foi confirmado nela.
+A documentação do site não é versionada; ela cita recursos do 7.x. A versão da imagem foi fixada em 7.1.2 (a `latest` de 2026-11-18). Na 7.1.2 foram testados só o cadastro (409) e a recusa de publicação sem credencial ou com token inventado, abaixo. A semântica de `publish` ausente (não casa com ninguém) e de `max_users: -1` vem da documentação (Context7 `/websites/verdaccio` e README v6.11.3), não de um teste com usuário válido.
 
 ### Publicação e cadastro recusados
 
@@ -113,7 +130,7 @@ Resultado:
 | `npm publish` com token inventado, pacote com escopo | `npm error code E401` |
 | `GET /proxypk-teste-sem-escopo` depois | 404 (nada foi gravado) |
 
-Como nenhum usuário pode existir, a publicação por um usuário logado de verdade não foi exercitada: a recusa provada é para anônimo e para token inválido.
+Este critério da T4 ficou parcial. Anônimo e token inventado foram recusados e o cadastro foi bloqueado (409), mas nenhum usuário autenticado válido tentou publicar (com cadastro fechado nenhum existe); para ele a recusa vem só da documentação. O push do BaGetter também não foi testado.
 
 ### Tempos do `npm ci` do `.app` (81 pacotes adicionados)
 
@@ -188,9 +205,9 @@ O job rodou no `alessandrocaetanob/hyperius` (campo `picard.resource_class`), se
 - O log não tem horário por linha e os projetos restauram em paralelo. O maior `Restored ... (in 20.08 sec)` é `tools/VNForge.Capturas`; os seguintes são 12,76 s (`Installer.Tests`) e 12,45 s (`App`). Por isso o restore leva **pelo menos 20 s** (cerca de 18% do Build) e não dá para somar as linhas.
 - Das 20 linhas `Restored`, 12 levaram menos de 1 s e 8 levaram de 5,85 a 20,08 s.
 
-Não consegui explicar por que o `dotnet restore` direto neste PC (40 a 57 s) é duas a três vezes mais lento que o do CI (20 s ou pouco mais). Hipóteses que não testei: a rede, e a pasta `~/.nuget/packages` do slot já ter pacotes de jobs anteriores (a issue diz que cada job do hyperius começa sem cache). Por isso o ganho no job real fica entre os 15 s extrapolados e os 40 s medidos aqui.
+Não consegui explicar por que o `dotnet restore` direto neste PC (40 a 57 s) é duas a três vezes mais lento que o do CI (20 s ou pouco mais). Hipóteses que não testei: a rede, e a pasta `~/.nuget/packages` do slot já ter pacotes de jobs anteriores (a issue diz que cada job do hyperius começa sem cache). Por isso a diferença de 40 s medida aqui não vale para o job; o ganho estimado no job é de 6 a 15 s (seção "Decisão").
 
-## O que o vnforge precisa antes do proxy
+## O que o vnforge precisa antes de um proxy de NuGet
 
 Hoje não existe nenhum `packages.lock.json` (0 arquivos na cópia de `HEAD`). Sem ele, o restore é solto: o espelho pode devolver uma versão diferente da de ontem sem que nada acuse, e não há chave estável para um cache.
 
@@ -198,7 +215,8 @@ Hoje não existe nenhum `packages.lock.json` (0 arquivos na cópia de `HEAD`). S
 2. Travar o restore no CI: `dotnet restore VNForge.slnx --locked-mode`, ou `-p:RestoreLockedMode=true` no `dotnet build`. Em modo travado o restore usa exatamente os pacotes do lockfile ou falha se as dependências mudaram (mesma fonte). Esse passo roda antes do `dotnet build ... --no-incremental` do job.
 3. Fixar o SDK. O `global.json` tem `"rollForward": "latestFeature"`, e a mesma página da Microsoft avisa que pacotes implícitos do SDK mudam de versão com ele e quebram o restore travado; ela recomenda `rollForward: disable`.
 4. Um `nuget.config` (no repo ou no runner) com `<clear />` e só o espelho, com `allowInsecureConnections="true"` por ser HTTP dentro da rede do Docker. Sem o `<clear />` o NuGet cai de volta no nuget.org e a medida não vale.
-5. Não verificado: se o modo travado aceita o hash dos `.nupkg` servidos pelo BaGetter (devem ser os mesmos bytes do nuget.org, mas o restore travado não foi rodado aqui, porque não há lockfile).
+5. Auditoria de vulnerabilidades (`NuGetAudit`): se um proxy de NuGet voltar à mesa, conferir os avisos NU1900 a NU1904. O BaGetter provavelmente não serve o recurso de vulnerabilidades, e o `Directory.Build.props` do vnforge tem `TreatWarningsAsErrors` em `true`, então esses avisos podem virar erro. Os restores desta medida terminaram com rc 0, mas só guardei o fim da saída de cada um, então não afirmo que não houve aviso.
+6. Não verificado: se o modo travado aceita o hash dos `.nupkg` servidos pelo BaGetter (devem ser os mesmos bytes do nuget.org, mas o restore travado não foi rodado aqui, porque não há lockfile).
 
 ## O que não foi medido
 
