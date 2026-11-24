@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Roda no host (Git Bash), com o Docker Desktop ligado: confere que o teto do cgroup /hyperius vale.
 # Sobe 6 containers que ocupam 4 CPUs cada, sob /hyperius, e exige que a soma do docker stats
-# fique perto das 12 CPUs do pool (1100% a 1250%), não nas 24 que os limites por job somariam.
+# fique perto das 16 CPUs do pool (1450% a 1650%), não nas 24 que os limites por job somariam.
 set -u
 
 # Sem isso o Git Bash converte -v /sys/... em C:\Program Files\Git\sys\...
@@ -10,8 +10,8 @@ export MSYS_NO_PATHCONV=1
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 image="${POOL_TEST_IMAGE:-docker:29-cli}"
 count=6
-min=1100
-max=1250
+min=1450
+max=1650
 warmup="${POOL_TEST_WARMUP:-15}"
 names=()
 for ((i = 1; i <= count; i++)); do names+=("pool-test-$i"); done
@@ -24,7 +24,7 @@ trap cleanup EXIT
 export POOL_HELPER_IMAGE="$image"
 # shellcheck source=../supervisor/pool.sh
 . "$root/supervisor/pool.sh"
-POOL_CPUS="${POOL_CPUS:-12}"
+POOL_CPUS="${POOL_CPUS:-16}"
 POOL_MEMORY="${POOL_MEMORY:-24g}"
 
 cleanup

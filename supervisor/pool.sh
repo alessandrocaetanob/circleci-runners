@@ -27,7 +27,7 @@ pool_to_bytes() {
 # Cria /hyperius se faltar, grava os limites e confere o que o kernel devolveu.
 # Retorna diferente de zero se não conseguir ou se os valores não baterem.
 ensure_pool_cgroup() {
-  _cpus="${POOL_CPUS:-12}"
+  _cpus="${POOL_CPUS:-16}"
   _mem="${POOL_MEMORY:-24g}"
   case "$_cpus" in
     '' | *[!0-9.]* | *.*.* | .)
