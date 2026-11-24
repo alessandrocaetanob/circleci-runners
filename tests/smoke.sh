@@ -47,6 +47,11 @@ check circleci-runner "" /opt/circleci/bin/circleci-runner --version
 check ssh-known-hosts "github.com" ssh-keygen -F github.com -f /etc/ssh/ssh_known_hosts
 # shellcheck disable=SC2016
 check playwright-chromium "chromium ok" bash -c 'd=$(mktemp -d) && cd "$d" && npm init -y >/dev/null && npm i --no-audit --no-fund playwright-core@1.64.1 >/dev/null && node -e "const {chromium}=require(\"playwright-core\");(async()=>{const b=await chromium.launch();const p=await b.newPage();await p.goto(\"about:blank\");console.log(\"chromium ok \"+b.version());await b.close()})().catch(e=>{console.error(e.message);process.exit(1)})"'
+# Ferramentas do Sonar vêm na imagem, com as versões do config do vnforge, e resolvem no PATH.
+# shellcheck disable=SC2016
+check sonar-tools "sonarscanner=11.3.0 coverage=18.11.2 path=/opt/dotnet-tools" bash -c 'l=$(dotnet tool list --tool-path /opt/dotnet-tools 2>&1); echo "sonarscanner=$(awk "\$1==\"dotnet-sonarscanner\"{print \$2}" <<<"$l") coverage=$(awk "\$1==\"dotnet-coverage\"{print \$2}" <<<"$l") path=$(command -v dotnet-sonarscanner dotnet-coverage | xargs -r -n1 dirname | sort -u | tr "\n" " " | sed "s/ $//")"'
+# A pasta é do root: um binário plantado ali por outro job receberia o SONAR_TOKEN.
+check sonar-tools-readonly "Permission denied" bash -c 'touch /opt/dotnet-tools/.smoke 2>&1; true'
 
 if ((${#failures[@]})); then
   echo

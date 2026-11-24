@@ -125,10 +125,14 @@ Base: `circleci/runner-agent:machine-3` (Ubuntu 22.04, usuário `circleci`).
 | zip, unzip, xz-utils, tar, rsync, file, jq, curl | apt do jammy | apt |
 | build-essential, pkg-config | apt do jammy | apt |
 | Playwright (dependências de sistema e Chromium) | 1.64.1 | `npx playwright@1.64.1 install-deps chromium` e `install chromium`; navegador em `/opt/ms-playwright` (`PLAYWRIGHT_BROWSERS_PATH`) |
+| dotnet-sonarscanner | 11.3.0 | `dotnet tool install --tool-path /opt/dotnet-tools`, como root; `ARG SONARSCANNER_VERSION` |
+| dotnet-coverage | 18.11.2 | `dotnet tool install --tool-path /opt/dotnet-tools`, como root; `ARG DOTNET_COVERAGE_VERSION` |
 | Chaves SSH do github.com | ed25519, ecdsa, rsa | `image/ssh_known_hosts`, em `/etc/ssh/ssh_known_hosts` |
 
 As pastas do Node pertencem ao usuário `circleci`, então `npm i -g` funciona sem sudo. O `/usr/bin/python3` do
 sistema não muda. Terraform fica fora da imagem: cada projeto instala no job.
+
+A pasta `/opt/dotnet-tools` pertence ao root e está no `PATH`: o job usa as duas ferramentas do Sonar sem baixar nada, e sem sudo só lê a pasta. O `circleci` tem sudo sem senha, então um step com `sudo` consegue escrever ali. Cada job roda num container novo, e o que ele grava some com o container.
 
 O Chromium do Playwright 1.64.1 já está na imagem. Um projeto com a mesma versão do Playwright usa
 `npx playwright install chromium` sem baixar nada nem rodar `--with-deps`; outra versão baixa o seu navegador para

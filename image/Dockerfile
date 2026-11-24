@@ -8,6 +8,8 @@ ARG NODE_LTS_VERSION=22.12.0
 ARG NODE_LTS_SHA256=22982235e1b71fa8850f82edd09cdae7e3f32df1764a9ec298c72d25ef2c164f
 ARG DOTNET_CHANNEL=10.0
 ARG PLAYWRIGHT_VERSION=1.64.1
+ARG SONARSCANNER_VERSION=11.3.0
+ARG DOTNET_COVERAGE_VERSION=18.11.2
 
 USER root
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -75,6 +77,14 @@ RUN set -eux; \
     chown -R circleci:circleci "${PLAYWRIGHT_BROWSERS_PATH}"; \
     rm -rf /root/.npm /root/.cache /var/lib/apt/lists/* /tmp/*
 
+# Camada própria depois do .NET e do Playwright: trocar uma versão do Sonar não refaz as anteriores.
+# Instalada como root: sem sudo o circleci só lê a pasta. Com sudo ele escreve, mas cada job roda
+# num container novo e o que grava some com ele.
+RUN set -eux; \
+    export DOTNET_CLI_HOME=/tmp/dotnet-home DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1; \
+    dotnet tool install --tool-path /opt/dotnet-tools dotnet-sonarscanner --version "${SONARSCANNER_VERSION}"; \
+    dotnet tool install --tool-path /opt/dotnet-tools dotnet-coverage --version "${DOTNET_COVERAGE_VERSION}"; \
+    rm -rf /tmp/dotnet-home /tmp/NuGetScratch /root/.nuget
 # Chaves do github.com para o ssh dos jobs: sem elas o git fetch por SSH espera a confirmação
 # da chave e trava (o step checkout do CircleCI grava as chaves só num diretório temporário).
 # Origem: https://api.github.com/meta (campo ssh_keys), conferidas contra as impressões SHA256 de
@@ -90,15 +100,17 @@ RUN chmod 0755 /usr/local/bin/use-node \
       'export DOTNET_ROOT=/usr/share/dotnet' \
       'export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64' \
       'export DOTNET_CLI_TELEMETRY_OPTOUT=1' \
+      'export DOTNET_COVERAGE_TELEMETRY_OPTOUT=1' \
       'export DOTNET_NOLOGO=1' \
       'export PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright' \
-      'export PATH=/opt/node/24/bin:/usr/local/bin:$PATH' \
+      'export PATH=/opt/node/24/bin:/opt/dotnet-tools:/usr/local/bin:$PATH' \
     > /etc/profile.d/hyperius.sh
 
 ENV DOTNET_ROOT=/usr/share/dotnet \
     JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 \
     DOTNET_CLI_TELEMETRY_OPTOUT=1 \
+    DOTNET_COVERAGE_TELEMETRY_OPTOUT=1 \
     DOTNET_NOLOGO=1 \
-    PATH=/opt/node/24/bin:/usr/local/bin:${PATH}
+    PATH=/opt/node/24/bin:/opt/dotnet-tools:/usr/local/bin:${PATH}
 
 USER circleci
