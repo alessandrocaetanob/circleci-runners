@@ -15,12 +15,13 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-NULO = "\\N"
+# Vazio, \N (a forma entre aspas) e \\N (a forma sem aspas, com duas barras no CSV).
+NULOS = ("", "\\N", "\\\\N")
 FAIXAS = ("<1", "1-3", ">=3")
 
 
 def numero(texto):
-    if texto is None or texto.strip() in ("", NULO):
+    if texto is None or texto.strip() in NULOS:
         return 0.0
     try:
         return float(texto)
@@ -29,7 +30,7 @@ def numero(texto):
 
 
 def momento(texto):
-    if texto is None or texto.strip() in ("", NULO):
+    if texto is None or texto.strip() in NULOS:
         return None
     try:
         return datetime.fromisoformat(texto.strip().replace(" UTC", "")[:26])
@@ -120,6 +121,7 @@ def main():
     parser.add_argument("--executor", required=True)
     parser.add_argument("--json", action="store_true", help="saída em JSON")
     args = parser.parse_args()
+    sys.stdout.reconfigure(encoding="utf-8")
     semanas = semanal(ler_linhas(args.pasta), args.projeto, args.job, args.executor)
     if args.json:
         resultado = {

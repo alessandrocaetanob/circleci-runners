@@ -2,8 +2,9 @@
 
     python -I scripts/uso/agregar.py <pasta com os .csv> [--json]
 
-Lê todos os *.csv da pasta. O nulo da exportação é escrito \\N (também entre aspas) e o vazio
-conta como 0, como qualquer valor que não seja número.
+Lê todos os *.csv da pasta. O nulo da exportação é escrito \\\\N sem aspas e \\N entre aspas
+(no arquivo, duas barras e uma barra). Nulo e vazio contam como 0, como qualquer valor que
+não seja número.
 """
 import argparse
 import csv
@@ -12,11 +13,12 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-NULO = "\\N"
+# Vazio, \N (a forma entre aspas) e \\N (a forma sem aspas, com duas barras no CSV).
+NULOS = ("", "\\N", "\\\\N")
 
 
 def numero(texto):
-    if texto is None or texto.strip() in ("", NULO):
+    if texto is None or texto.strip() in NULOS:
         return 0.0
     try:
         return float(texto)
@@ -25,7 +27,7 @@ def numero(texto):
 
 
 def texto(valor):
-    return "" if valor is None or valor.strip() == NULO else valor.strip()
+    return "" if valor is None or valor.strip() in NULOS else valor.strip()
 
 
 def ler_linhas(pasta):
@@ -95,6 +97,7 @@ def main():
     parser.add_argument("pasta", help="pasta com os CSVs da exportação de uso")
     parser.add_argument("--json", action="store_true", help="saída em JSON")
     args = parser.parse_args()
+    sys.stdout.reconfigure(encoding="utf-8")
     resultado = agregar(ler_linhas(args.pasta))
     if args.json:
         print(json.dumps(resultado, ensure_ascii=False))
