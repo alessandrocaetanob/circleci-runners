@@ -6,7 +6,7 @@ Ondas: 3
 
 ## Contexto
 
-A exportação de uso do CircleCI de 24/10 a 23/11 mostrou o vnforge 2,4x a 2,9x mais lento com 3 ou mais jobs ao lado na mesma semana (pool com teto de 12 CPUs, 15 h com os 6 slots ocupados) e todo job baixando pacotes e ferramentas do zero. Esta maratona sobe o teto de CPU para 16, põe as ferramentas do Sonar na imagem, guarda os scripts que mediram isso e mede o proxy de pacotes antes de construí-lo. As maratonas do dotfiles, do vnforge e do personal-notes dependem desta. Plano completo e decisões do Alessandro: `C:\Users\aless\.claude\plans\quero-que-pesquise-bastente-clever-aho-of-6fbedb28-d0dd-4002-bf30-c404727b69ac.md`.
+A exportação de uso do CircleCI de 24/10 a 23/11 mostrou o vnforge 2,4x a 2,9x mais lento com 3 ou mais jobs ao lado na mesma semana (pool com teto de 12 CPUs, 15 h com os 6 slots ocupados) e todo job baixando pacotes e ferramentas do zero. Esta maratona sobe o teto de CPU para 16, põe as ferramentas do Sonar na imagem, guarda os scripts que mediram isso e mede o proxy de pacotes antes de construí-lo. As maratonas do dotfiles, do vnforge e do personal-notes dependem desta. O plano completo e as decisões do Alessandro ficaram no plano local da sessão de 24/11.
 
 ## Tarefas
 
@@ -19,7 +19,7 @@ A exportação de uso do CircleCI de 24/10 a 23/11 mostrou o vnforge 2,4x a 2,9x
   - Pronto:
     - [x] `POOL_CPUS` padrão 16 no `compose.yaml`; `POOL_MEMORY` continua `24g`, sem `.wslconfig` (a VM do Docker tem 31,3 GB e nenhum dado mostra falta de memória)
       Evidência: commit 24d1eb6 muda o padrão para 16 em `compose.yaml`, `supervisor/slot.sh` e `supervisor/pool.sh`; `POOL_MEMORY` segue `24g`; o reviewer conferiu `docker info` com NCPU=24 e 31,3 GiB
-    - [x] `tests/pool.sh` sobe 6 containers com 4 CPUs ocupadas cada e aceita a soma entre 1.450% e 1.650%; o README diz a faixa nova e "Com os seis slots ocupados, os jobs dividem 16 CPUs"
+    - [x] `tests/pool.sh` sobe 6 containers com 4 CPUs ocupadas cada e aceita a soma entre 90% e 105% de `POOL_CPUS` (1.440% a 1.680% com 16; o critério original era 1.450% a 1.650%); o README diz a faixa nova e "Com os seis slots ocupados, os jobs dividem 16 CPUs"
       Evidência: a faixa passou a sair de `POOL_CPUS` (90% a 105%, 1440 a 1680 com 16), com média de 3 amostras, depois que uma leitura única deu 1716% por ruído; 10 rodadas: 1543, 1501, 1474, 1528, 1610, 1642, 1583, 1577, 1608, 1563; README atualizado (re-revisão limpa do reviewer)
     - [x] o PR fecha a issue
       Evidência: https://github.com/alessandrocaetanob/circleci-runners/pull/7 (Closes #3, mergeado em 24d1eb6)
@@ -28,12 +28,12 @@ A exportação de uso do CircleCI de 24/10 a 23/11 mostrou o vnforge 2,4x a 2,9x
   - Arquivos: `scripts/uso/agregar.py` (novo), `scripts/uso/semanal.py` (novo), `README.md`
   - Testes: tester · até 4 (motivo: sem `USO_CSV_DIR` nenhum teste cobria a regra de sobreposição do `semanal.py`; o caso sintético 4 pega faixa ou semana errada, job de outro projeto ignorado e job não `success` contado)
   - Exemplos:
-    - exportação de 24/10 a 23/11 → total de 63.343 créditos, 44.379 de cômputo, 18.255 de rede (fonte: exportação `01c8a143-0525-c5f6-001b-7a8366cb4f96`, CSVs em `H:\TMP\claude\5e0e1b5787328ac3\6fbedb28-d0dd-4002-bf30-c404727b69ac\scratchpad\usage`)
+    - exportação de 24/10 a 23/11 → total de 63.343 créditos, 44.379 de cômputo, 18.255 de rede (fonte: exportação `01c8a143-0525-c5f6-001b-7a8366cb4f96`, CSVs fora do repo)
     - linha com `\N` em `JOB_RUN_SECONDS` → conta como 0 e não derruba o script (fonte: mesma exportação, 76 linhas do vnforge `linux` sem executor)
     - mesma exportação, vnforge `linux` no runner, W44 → mediana de 378 s sem job ao lado e 1.086 s com 3 ou mais (fonte: medição desta sessão)
   - Prova: `python -I scripts/uso/agregar.py <pasta dos CSVs>` e os testes do tester
   - Pronto:
-    - [x] os dois scripts partem de `agg.py` e `weekly.py` em `H:\TMP\claude\5e0e1b5787328ac3\6fbedb28-d0dd-4002-bf30-c404727b69ac\scratchpad\scripts`, recebem a pasta dos CSVs como argumento e imprimem os totais por projeto e job e a mediana por número de jobs ao lado
+    - [x] os dois scripts partem de `agg.py` e `weekly.py` no rascunho da sessão, recebem a pasta dos CSVs como argumento e imprimem os totais por projeto e job e a mediana por número de jobs ao lado
       Evidência: `scripts/uso/agregar.py` e `scripts/uso/semanal.py` em 48e0832; `python -I -m unittest discover -s tests/uso -v` com `USO_CSV_DIR` deu OK em 4 testes (totais 63343, linha dotfiles 562/14558, W44 378 e 1086); vermelho pela asserção no esboço 8a576e7; 12 de 13 mutações vermelhas na revisão
     - [x] o README diz como baixar a exportação (`download_usage_data` do MCP do CircleCI, janela de até 31 dias) e rodar os scripts
       Evidência: seção "Medir o uso do CircleCI" do README em 48e0832; a janela de 31 dias vem da descrição da ferramenta `download_usage_data`
