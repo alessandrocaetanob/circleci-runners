@@ -4,23 +4,25 @@ Data: 2026-11-24. Pergunta: vale construir um proxy local de pacotes para os job
 
 ## Decisão
 
-| Gerenciador | Decisão | Número que decide |
-|---|---|---|
 Critério, o mesmo para os dois gerenciadores: **go** quando o ganho estimado no job passa de 10% do tempo do job ou de 30 s, pesando o custo de manter um serviço a mais. Sem medida dentro de um job real, vale a estimativa.
 
 | Gerenciador | Decisão | Número que decide |
 |---|---|---|
-| npm (`.app` do personal-notes) | **No-go** | `npm ci`: mediana 20,4 s direto contra 15,4 s pelo Verdaccio quente. Ganho de 5 s, do tamanho da oscilação entre as amostras diretas (18,9 a 23,2 s). Abaixo de 30 s. |
-| NuGet (vnforge) | **No-go agora** | Ganho estimado de 6 a 15 s no job de 271 s (2% a 5%), abaixo de 10% e de 30 s. Detalhe abaixo. |
+| npm (`.app` do personal-notes) | **No-go** | `npm ci`: mediana 20,4 s direto contra 15,4 s pelo Verdaccio quente. Ganho de 5 s, do tamanho da oscilação entre as amostras diretas (18,9 a 23,2 s), cerca de 5% a 6% do job (abaixo de 10%) e abaixo de 30 s. |
+| NuGet (vnforge) | **No-go agora** | Estimativa de 6 a 15 s no job de 271 s (2% a 5%), supondo restore de 20 s no CI; abaixo de 10% e de 30 s. Detalhe abaixo. |
+
+### O ganho do npm no job
+
+O job do personal-notes que roda `npm ci` no hyperius teve duração mediana de 94 s, 94 s e 88 s nas semanas W44, W45 e W47. Fonte: exportação de uso do CircleCI de 24/10 a 23/11, agregada nesta sessão (não está versionada). O ganho de 5 s é cerca de 5% a 6% desse job, abaixo dos 10%.
 
 ### O ganho do NuGet no job
 
-Neste PC, o `dotnet restore VNForge.slnx` tem mediana de 54,0 s direto contra 14,4 s pelo BaGetter quente (menos 73%), com oscilação de 16 s no direto (41,3 a 56,9) e de 6 s no quente (12,6 a 18,9). Esses 40 s de diferença não são o ganho do job: o restore direto daqui é duas a três vezes mais lento que o do CI. O teto do ganho é o restore do CI, que no job 1928 levou pelo menos 20 s (seção "Restore de hoje"). Duas contas, ambas sem medida em CI:
+Neste PC, o `dotnet restore VNForge.slnx` tem mediana de 54,0 s direto contra 14,4 s pelo BaGetter quente (menos 73%), com oscilação de 16 s no direto (41,3 a 56,9) e de 6 s no quente (12,6 a 18,9). Esses 40 s de diferença não são o ganho do job: o restore direto daqui é duas a três vezes mais lento que o do CI. O restore do CI no job 1928 levou pelo menos 20 s, um piso (seção "Restore de hoje"). O ganho estimado sai de duas contas, ambas com restore de 20 s no CI e sem medida em CI:
 
 - Pela razão quente/direto desta medida (0,27): 20 s viram 5,3 s, ganho de uns 15 s (5% do job).
 - Pelo tempo absoluto do proxy quente (14,4 s) contra os 20 s do CI: ganho de uns 6 s (2% do job). Dos 14,4 s, uns 11 s são, por inferência, a consulta do BaGetter ao upstream e o tráfego HTTP, já que a restauração com o cache local do NuGet quente leva 2,5 a 3,5 s; essa parcela não foi medida separada.
 
-A faixa é de 6 a 15 s. Um proxy de NuGet só volta à mesa com uma medida dentro de um job real do hyperius.
+A estimativa é de 6 a 15 s, supondo restore de 20 s no CI. Se o restore do CI for maior, o ganho cresce: pela razão 0,27, o limiar de 30 s pediria um restore de uns 41 s, e o de 10% do job (27 s de 271 s), uns 37 s, dentro de um Build de 110,9 s. Como o piso de 20 s não diz o valor real, isso reforça a condição: um proxy de NuGet só volta à mesa com uma medida dentro de um job real do hyperius.
 
 ### O lockfile vale sem o proxy
 
