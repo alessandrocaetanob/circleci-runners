@@ -51,25 +51,39 @@ class UsoTests(unittest.TestCase):
         # Fonte: exportação 01c8a143-0525-c5f6-001b-7a8366cb4f96 do CircleCI.
         r = rodar(AGREGAR, PASTA_REAL, "--json")
         self.assertEqual(r.returncode, 0, r.stderr)
+        saida = json.loads(r.stdout)
         self.assertEqual(
-            json.loads(r.stdout)["totais"],
+            saida["totais"],
             {"compute": 44379, "network": 18255, "storage": 709, "total": 63343},
         )
+        # Linha de jobs: dotfiles, job test, classe medium, executor docker. creditos é a soma
+        # de TOTAL_CREDITS. Fonte: medição da sessão com um script de rascunho, independente deste código.
+        linha = [
+            j for j in saida["jobs"]
+            if (j["projeto"], j["job"], j["classe"], j["executor"])
+            == ("dotfiles", "test", "medium", "docker")
+        ]
+        self.assertEqual(len(linha), 1)
+        self.assertEqual(linha[0]["execucoes"], 562)
+        self.assertEqual(linha[0]["creditos"], 14558)
 
     def test_nulo_e_vazio_contam_como_zero_e_o_script_nao_falha(self):
-        # Dano: a exportação traz \N em duração e créditos (76 linhas do vnforge `linux`)
-        # e o script quebrar ou tratar o \N como texto no meio da soma.
+        # Dano: o script quebrar ou tratar o nulo como texto no meio da soma. Na exportação real
+        # o nulo vem de duas formas: entre aspas, "\N" (as 76 linhas do vnforge `linux` têm
+        # EXECUTOR e RESOURCE_CLASS assim), e sem aspas, com duas barras, \\N (63 valores de
+        # JOB_RUN_SECONDS). A fixture usa as duas formas; os créditos nulos são caso sintético,
+        # a exportação real não tem coluna de crédito nula.
         linhas = [
             CABECALHO,
             # linha normal
             '"vnforge","linux","2026-11-03 19:44:28.000","2026-11-03 19:45:28.000","success",'
             '"alessandrocaetanob/hyperius","runner",60,10,1,3,14',
-            # linha com \N na classe, no executor, na duração e em todos os créditos
+            # linha com nulo entre aspas na classe e no executor, e \\N sem aspas na duração e nos créditos
             '"vnforge","linux","2026-11-03 20:00:00.000","2026-11-03 20:01:00.000","failed",'
-            r'"\N","\N",\N,\N,\N,\N,\N',
-            # linha com crédito vazio e outro \N
+            r'"\N","\N",\\N,\\N,\\N,\\N,\\N',
+            # linha com crédito vazio e outro \\N sem aspas
             '"vnforge","linux","2026-11-03 21:00:00.000","2026-11-03 21:01:00.000","success",'
-            '"alessandrocaetanob/hyperius","runner",60,"",\\N,5,5',
+            r'"alessandrocaetanob/hyperius","runner",60,"",\\N,5,5',
         ]
         with tempfile.TemporaryDirectory() as pasta:
             Path(pasta, "sintetico.csv").write_text("\n".join(linhas) + "\n", encoding="utf-8")
