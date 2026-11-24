@@ -39,11 +39,16 @@ Limites, via variáveis de ambiente antes do `up.ps1`: `JOB_CPUS` (padrão `4`),
 ### Teto do conjunto
 
 Os containers de job rodam sob o cgroup pai `/hyperius`, com `cpu.max` de `POOL_CPUS` e `memory.max` de `POOL_MEMORY`.
-Com os seis slots ocupados, os jobs dividem 16 CPUs (cerca de 2,7 por job); com um ou dois jobs, cada um usa até 4. Antes de cada
+Com os seis slots ocupados, os jobs dividem 16 CPUs (cerca de 2,7 por job); com até quatro jobs, cada um usa até 4. Os 16 CPUs do teto
+deixam cerca de 8 das 24 da VM para o Windows e os outros containers (SonarQube MCP); o teto só vale se a VM tiver
+pelo menos 16 CPUs. Antes de cada
 job, o `supervisor/slot.sh` cria o `/hyperius` se faltar e grava os limites por um container auxiliar privilegiado
 (`supervisor/pool.sh`, imagem `docker:29-cli`). Se o kernel devolver outros valores, o runner não sobe e o slot tenta
 de novo com backoff. Isso cobre o reinício do Docker Desktop, depois do qual a VM volta sem o cgroup e os slots sobem
 pelo restart policy, sem passar pelo compose.
+
+Os slots já criados guardam o `POOL_CPUS` antigo no ambiente do container e reescrevem o `/hyperius` a cada job.
+Mudar o padrão exige `scripts/down.ps1` com os slots ociosos e `scripts/up.ps1` para recriá-los.
 
 `scripts/status.ps1` mostra `cpu.max`, `memory.current` e `memory.max` do `/hyperius`.
 
@@ -52,8 +57,9 @@ pelo restart policy, sem passar pelo compose.
 - `scripts/build.ps1` roda `tests/smoke.sh` dentro da imagem (ferramentas, `known_hosts`, Chromium).
 - `bash tests/pool.sh` roda no host, em Git Bash, com o Docker Desktop ligado. Garante o `/hyperius`, sobe seis
   containers `pool-test-1` a `pool-test-6` com 4 CPUs ocupadas cada e falha se a soma do `docker stats` ficar fora de
-  1450% a 1650%. Os containers somem no fim. Rode com os slots ociosos (`scripts/status.ps1`): um job real no
-  `/hyperius` divide as 16 CPUs com o teste e derruba a soma abaixo de 1450%.
+  90% a 105% de `POOL_CPUS` (1440% a 1680% com 16), na média de 3 amostras. Os containers somem no fim. Rode com
+  os slots ociosos (`scripts/status.ps1`): um job real no `/hyperius` divide as 16 CPUs com o teste e derruba a soma
+  abaixo de 1440%.
 
 ### Atualizar a imagem
 
