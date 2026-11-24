@@ -2,6 +2,8 @@
 
 Data: 2026-10-27. Estado: aguardando aprovação.
 
+Atualização de 2026-11-24: o teto de CPU do conjunto passou a 16 (issue #3); os números de 12 CPUs abaixo são da época.
+
 ## Objetivo
 
 Passar de 3 para 6 slots no resource class `alessandrocaetanob/hyperius`, com o pool inteiro limitado a cerca de

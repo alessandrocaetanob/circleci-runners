@@ -1,7 +1,7 @@
 # circleci-runners
 
 Machine runners do CircleCI no Docker Desktop, registrados no resource class `alessandrocaetanob/hyperius`.
-Seis slots (`hyperius-1` a `hyperius-6`) rodam jobs em paralelo, com teto de 12 CPUs e 24 GB para o conjunto. Cada job executa num container novo, que some ao
+Seis slots (`hyperius-1` a `hyperius-6`) rodam jobs em paralelo, com teto de 16 CPUs e 24 GB para o conjunto. Cada job executa num container novo, que some ao
 fim do job, então o job seguinte encontra HOME, `/usr/local` e pacotes apt limpos.
 
 Como funciona: o runner sobe em modo `single-task` e sai quando termina um job. Um supervisor por slot
@@ -12,7 +12,7 @@ Plano e decisões: `docs/plans/2026-10-24-runners-hyperius.md` e `docs/plans/202
 ## Pré-requisitos
 
 - Docker Desktop com backend WSL2. Cada job recebe no máximo 4 CPUs e 6 GB (ajustável, veja abaixo) e o conjunto
-  dos seis slots fica limitado a 12 CPUs e 24 GB, cerca de metade de um host de 24 threads e 64 GB.
+  dos seis slots fica limitado a 16 CPUs e 24 GB.
 - 1Password CLI (`op`) com a integração do app desktop ligada.
 - O item `CircleCI Runner` no vault `Claude`, com o token do resource class no campo `credential`
   (`op://Claude/CircleCI Runner/credential`).
@@ -33,17 +33,22 @@ Com o Docker Desktop iniciando no login, os slots voltam sozinhos depois de um r
 O token é lido só em `up.ps1`; no reboot, o Docker reutiliza o valor guardado na configuração dos containers.
 
 Limites, via variáveis de ambiente antes do `up.ps1`: `JOB_CPUS` (padrão `4`), `JOB_MEMORY` (padrão `6g`),
-`JOB_SHM` (padrão `1g`, o `/dev/shm` do container, útil para navegadores), `POOL_CPUS` (padrão `12`) e
+`JOB_SHM` (padrão `1g`, o `/dev/shm` do container, útil para navegadores), `POOL_CPUS` (padrão `16`) e
 `POOL_MEMORY` (padrão `24g`), o teto do conjunto de slots.
 
 ### Teto do conjunto
 
 Os containers de job rodam sob o cgroup pai `/hyperius`, com `cpu.max` de `POOL_CPUS` e `memory.max` de `POOL_MEMORY`.
-Com os seis slots ocupados, os jobs dividem 12 CPUs (2 em média); com um ou dois jobs, cada um usa até 4. Antes de cada
+Com os seis slots ocupados, os jobs dividem 16 CPUs (cerca de 2,7 por job); com até quatro jobs, cada um usa até 4. Os 16 CPUs do teto
+deixam cerca de 8 das 24 da VM para o Windows e os outros containers (SonarQube MCP); o teto só vale se a VM tiver
+pelo menos 16 CPUs. Antes de cada
 job, o `supervisor/slot.sh` cria o `/hyperius` se faltar e grava os limites por um container auxiliar privilegiado
 (`supervisor/pool.sh`, imagem `docker:29-cli`). Se o kernel devolver outros valores, o runner não sobe e o slot tenta
 de novo com backoff. Isso cobre o reinício do Docker Desktop, depois do qual a VM volta sem o cgroup e os slots sobem
 pelo restart policy, sem passar pelo compose.
+
+Os slots já criados guardam o `POOL_CPUS` antigo no ambiente do container e reescrevem o `/hyperius` a cada job.
+Mudar o padrão exige `scripts/down.ps1` com os slots ociosos e `scripts/up.ps1` para recriá-los.
 
 `scripts/status.ps1` mostra `cpu.max`, `memory.current` e `memory.max` do `/hyperius`.
 
@@ -52,8 +57,9 @@ pelo restart policy, sem passar pelo compose.
 - `scripts/build.ps1` roda `tests/smoke.sh` dentro da imagem (ferramentas, `known_hosts`, Chromium).
 - `bash tests/pool.sh` roda no host, em Git Bash, com o Docker Desktop ligado. Garante o `/hyperius`, sobe seis
   containers `pool-test-1` a `pool-test-6` com 4 CPUs ocupadas cada e falha se a soma do `docker stats` ficar fora de
-  1100% a 1250%. Os containers somem no fim. Rode com os slots ociosos (`scripts/status.ps1`): um job real no
-  `/hyperius` divide as 12 CPUs com o teste e derruba a soma abaixo de 1100%.
+  90% a 105% de `POOL_CPUS` (1440% a 1680% com 16), na média de 3 amostras. Os containers somem no fim. Rode com
+  os slots ociosos (`scripts/status.ps1`): um job real no `/hyperius` divide as 16 CPUs com o teste e derruba a soma
+  abaixo de 1440%.
 
 ### Atualizar a imagem
 

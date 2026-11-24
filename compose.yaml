@@ -20,7 +20,7 @@ x-slot-env: &slot-env
   JOB_CPUS: ${JOB_CPUS:-4}
   JOB_MEMORY: ${JOB_MEMORY:-6g}
   JOB_SHM: ${JOB_SHM:-1g}
-  POOL_CPUS: ${POOL_CPUS:-12}
+  POOL_CPUS: ${POOL_CPUS:-16}
   POOL_MEMORY: ${POOL_MEMORY:-24g}
   # Sem valor: o compose herda do ambiente do processo (op run).
   CIRCLECI_RUNNER_API_AUTH_TOKEN:
